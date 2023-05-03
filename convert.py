@@ -33,6 +33,7 @@ class Grammar(NamedTuple):
     gen: Optional[str]
     gram: Optional[str]
     number: Optional[str]
+    note: Optional[str]
 
 
 class Form(NamedTuple):
@@ -89,6 +90,7 @@ def parse_form(form_xml: ET.Element) -> Form:
     orth = fmap(lambda n: n.text, form_xml.find("./orth", namespaces))
     oRef = fmap(lambda n: n.text, form_xml.find("./oRef", namespaces))
     note = fmap(lambda n: n.text, form_xml.find("./note", namespaces))
+    gram = fmap(parse_gram, form_xml.find("./gramGrp", namespaces))
     ref = [ref.text or "" for ref in form_xml.findall("./ref", namespaces)]
     return Form(
         type_=type_
@@ -98,7 +100,7 @@ def parse_form(form_xml: ET.Element) -> Form:
         orth=orth,
         oRef=oRef,
         ref=ref,
-        grammar=None,
+        grammar=gram,
         note=note,
     )
 
@@ -109,7 +111,10 @@ def parse_gram(gram_xml: ET.Element) -> Grammar:
     subc = fmap(lambda x: x.text, gram_xml.find("./subc", namespaces))
     gram = fmap(lambda x: x.text, gram_xml.find("./gram", namespaces))
     number = fmap(lambda x: x.text, gram_xml.find("./number", namespaces))
-    return Grammar(pos=pos or "?", subc=subc, gen=gen, gram=gram, number=number)
+    note = fmap(lambda x: x.text, gram_xml.find("./note", namespaces))
+    return Grammar(
+        pos=pos or "?", subc=subc, gen=gen, gram=gram, number=number, note=note
+    )
 
 
 def parse_etym(etym_xml: ET.Element) -> Etymology:
@@ -153,7 +158,9 @@ def parse_cit(cit_xml: ET.Element) -> Cit:
             lambda n: n.text, cit_xml.find("./quote[@xml:lang='de']", namespaces)
         ) or fmap(lambda n: n.text, cit_xml.find("./quote[@xml:lang='en']", namespaces))
     elif type_ == "example":
-        quote = fmap(lambda n: n.text, cit_xml.find("./quote"))
+        quote = ", ".join(
+            quote.text or "" for quote in cit_xml.findall("./quote", namespaces)
+        )
     else:
         quote = ""
     bibl = fmap(lambda n: n.text, cit_xml.find("./bibl", namespaces))
@@ -190,14 +197,23 @@ def render_gram(gram: Grammar) -> str:
     return (
         "_"
         + " ".join(
-            x for x in [gram.pos, gram.subc, gram.gen, gram.number, gram.gram] if x
+            x
+            for x in [
+                gram.pos,
+                gram.subc,
+                gram.gen,
+                gram.number,
+                gram.gram,
+                "(" + gram.note.replace("*", "\\*") + ")" if gram.note else None,
+            ]
+            if x
         )
-        + "_ "
+        + "_"
     )
 
 
 def render_sense(sense: Sense) -> str:
-    return "; ".join(
+    return (", ".join(sense.ref) + " --- " if sense.ref else "") + "; ".join(
         " --- ".join(x for x in [cit.quote, cit.def_] if x)
         + f" #text(size: 0.7em, fill: gray)[{cit.bibl}]"
         for cit in sense.cit
@@ -234,7 +250,10 @@ def render_entry(entry: Entry) -> str:
     except StopIteration:
         lemma = entry.forms[0]
     forms = " ".join(
-        f"#super[{form.usg}]\u200c{form.orth.replace('*', '⁎')}"
+        f"#text(fill: {'black' if form.type_ == 'lemma' else 'olive' if form.type_ == 'inflected' else 'blue'})[#super[{form.usg}]\u200c"
+        + form.orth.replace("*", "\\*")
+        + (f" ({render_gram(form.grammar)})" if form.grammar else "")
+        + "]"
         for form in entry.forms
         if form.type_ != "lemma"
     )
@@ -246,8 +265,12 @@ def render_entry(entry: Entry) -> str:
             for index, sense in enumerate(entry.sense)
         )
     )
-    return f"/ {lemma.orth.replace('*', '⁎')}: {forms} {render_gram(entry.gram) if entry.gram else ''} {senses} {render_etym(entry.etym) if entry.etym else ''}".replace(
-        "`", "'"
+    return (
+        "/ "
+        + lemma.orth.replace("*", "\\*")
+        + f": {forms} {render_gram(entry.gram) if entry.gram else ''} {senses} {render_etym(entry.etym) if entry.etym else ''}".replace(
+            "`", "'"
+        )
     )
 
 
