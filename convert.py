@@ -1,6 +1,7 @@
 import xml.etree.ElementTree as ET
 from typing import Optional, List, Literal, Dict
 from typing import NamedTuple
+from sys import stderr
 
 input_path = "Comprehensive_Coptic_Lexicon-v1.2-2020.xml"
 
@@ -57,12 +58,19 @@ class Sense(NamedTuple):
     cit: List[Cit]
 
 
+class CrossReference(NamedTuple):
+    type_: Literal["cf", "syn"]
+    target: str
+    text: str
+
+
 class Entry(NamedTuple):
     forms: List[Form]
     gram: Optional[Grammar]
     etym: Optional[Etymology]
     note: Optional[str]
     sense: List[Sense]
+    xr: List[CrossReference]
 
 
 namespaces = {
@@ -171,19 +179,22 @@ def parse_sense(sense_xml: ET.Element) -> Sense:
     return Sense(ref_greek=ref_greek, cit=cit)
 
 
+def parse_xr(xr_xml: ET.Element) -> CrossReference:
+    type_ = xr_xml.attrib["type"]
+    ref = xr_xml.find("./ref", namespaces)
+    target = ref.attrib["target"].lstrip("#")
+    text = ref.text
+    return CrossReference(type_=type_, target=target, text=text)
+
+
 def parse_entry(entry_xml: ET.Element) -> Entry:
     forms = [parse_form(form) for form in entry_xml.findall("./form", namespaces)]
     gram = fmap(parse_gram, entry_xml.find("./gramGrp", namespaces))
     etym = fmap(parse_etym, entry_xml.find("./etym", namespaces))
     sense = [parse_sense(sense) for sense in entry_xml.findall("./sense", namespaces)]
+    xr = [parse_xr(xr) for xr in entry_xml.findall("./xr", namespaces)]
     note = fmap(lambda n: n.text, entry_xml.find("./note", namespaces))
-    return Entry(
-        forms=forms,
-        gram=gram,
-        etym=etym,
-        note=note,
-        sense=sense,
-    )
+    return Entry(forms=forms, gram=gram, etym=etym, note=note, sense=sense, xr=xr)
 
 
 def render_gram(gram: Grammar) -> str:
@@ -266,6 +277,7 @@ def render_entry(entry: Entry) -> str:
         + f": {forms} {render_gram(entry.gram) if entry.gram else ''} {senses} {render_etym(entry.etym) if entry.etym else ''}".replace(
             "`", "'"
         )
+        + ("→ " + ", ".join(xr.target for xr in entry.xr) if entry.xr else "")
     )
 
 
