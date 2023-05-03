@@ -1,4 +1,6 @@
-# from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
+from typing import Optional, List, Literal, Dict
+from typing import NamedTuple
 
 input_path = "Comprehensive_Coptic_Lexicon-v1.2-2020.xml"
 
@@ -9,17 +11,6 @@ def fmap(function, value):
     except:
         return None
 
-
-# with open(input_path, "r") as tei:
-#     soup = BeautifulSoup(tei, "lxml")
-
-# for entry in soup.find_all("entry"):
-#     lemma = entry.find("form", type="lemma").find("orth").get_text()
-#     print(lemma)
-
-import xml.etree.ElementTree as ET
-from typing import Optional, List, Literal, Dict
-from typing import NamedTuple
 
 tree = ET.parse(input_path)
 root = tree.getroot()
@@ -62,7 +53,7 @@ class Cit(NamedTuple):
 
 
 class Sense(NamedTuple):
-    ref: List[str]
+    ref_greek: List[str]
     cit: List[Cit]
 
 
@@ -173,9 +164,11 @@ def parse_cit(cit_xml: ET.Element) -> Cit:
 
 
 def parse_sense(sense_xml: ET.Element) -> Sense:
-    ref = [ref.text or "" for ref in sense_xml.findall("./ref", namespaces)]
+    ref_greek = [
+        ref.text or "" for ref in sense_xml.findall("./ref[@type='Greek']", namespaces)
+    ]
     cit = [parse_cit(cit) for cit in sense_xml.findall("./cit", namespaces)]
-    return Sense(ref=ref, cit=cit)
+    return Sense(ref_greek=ref_greek, cit=cit)
 
 
 def parse_entry(entry_xml: ET.Element) -> Entry:
@@ -213,7 +206,9 @@ def render_gram(gram: Grammar) -> str:
 
 
 def render_sense(sense: Sense) -> str:
-    return (", ".join(sense.ref) + " --- " if sense.ref else "") + "; ".join(
+    return (
+        ", ".join(sense.ref_greek) + " --- " if sense.ref_greek else ""
+    ) + "; ".join(
         " --- ".join(x for x in [cit.quote, cit.def_] if x)
         + f" #text(size: 0.7em, fill: gray)[{cit.bibl}]"
         for cit in sense.cit
@@ -248,7 +243,7 @@ def render_entry(entry: Entry) -> str:
     try:
         lemma = next(filter(lambda form: form.type_ == "lemma", entry.forms))
     except StopIteration:
-        lemma = entry.forms[0]
+        lemma = None
     forms = " ".join(
         f"#text(fill: {'black' if form.type_ == 'lemma' else 'olive' if form.type_ == 'inflected' else 'blue'})[#super[{form.usg}]\u200c"
         + form.orth.replace("*", "\\*")
@@ -267,7 +262,7 @@ def render_entry(entry: Entry) -> str:
     )
     return (
         "/ "
-        + lemma.orth.replace("*", "\\*")
+        + (lemma.orth.replace("*", "\\*") if lemma else "---")
         + f": {forms} {render_gram(entry.gram) if entry.gram else ''} {senses} {render_etym(entry.etym) if entry.etym else ''}".replace(
             "`", "'"
         )
