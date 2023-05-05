@@ -4,6 +4,7 @@ from typing import NamedTuple
 from sys import stderr
 
 input_path = "Comprehensive_Coptic_Lexicon-v1.2-2020.xml"
+preferred_language = "de"
 
 
 def fmap(function, value):
@@ -13,10 +14,10 @@ def fmap(function, value):
         return None
 
 
+Typst = str
+
 tree = ET.parse(input_path)
 root = tree.getroot()
-
-Language = Literal["en", "de", "fr"]
 
 
 class Grammar(NamedTuple):
@@ -48,7 +49,7 @@ class Etymology(NamedTuple):
 
 class Cit(NamedTuple):
     type_: Literal["example", "translation"]
-    quote: str  # Dict[Language, str]
+    quote: str
     def_: str
     bibl: str
 
@@ -119,19 +120,19 @@ def parse_gram(gram_xml: ET.Element) -> Grammar:
 def parse_etym(etym_xml: ET.Element) -> Etymology:
     note = fmap(lambda x: x.text, etym_xml.find("./note", namespaces))
     greek_lemma = fmap(
-        lambda x: x.text,
+        lambda x: x.text.replace("\n", " "),
         etym_xml.find("./ref[@type='greek_lemma::grl_lemma']", namespaces),
     )
     greek_pos = fmap(
-        lambda x: x.text,
+        lambda x: x.text.replace("\n", " "),
         etym_xml.find("./ref[@type='greek_lemma::grl_pos']", namespaces),
     )
     greek_ref = fmap(
-        lambda x: x.text,
+        lambda x: x.text.replace("\n", " "),
         etym_xml.find("./ref[@type='greek_lemma::grl_ref']", namespaces),
     )
     greek_meaning = fmap(
-        lambda x: x.text,
+        lambda x: x.text.replace("\n", " "),
         etym_xml.find("./ref[@type='greek_lemma::grl_meaning']", namespaces),
     )
     return Etymology(
@@ -150,8 +151,12 @@ def parse_cit(cit_xml: ET.Element) -> Cit:
         type_ = None
 
     def_ = fmap(
-        lambda n: n.text, cit_xml.find("./def[@xml:lang='de']", namespaces)
-    ) or fmap(lambda n: n.text, cit_xml.find("./def[@xml:lang='en']", namespaces))
+        lambda n: n.text,
+        cit_xml.find("./def[@xml:lang='" + preferred_language + "']", namespaces),
+    ) or fmap(
+        lambda n: n.text,
+        cit_xml.find("./def[@xml:lang='" + preferred_language + "']", namespaces),
+    )
     if type_ == "translation":
         quote = fmap(
             lambda n: n.text, cit_xml.find("./quote[@xml:lang='de']", namespaces)
@@ -197,102 +202,101 @@ def parse_entry(entry_xml: ET.Element) -> Entry:
     return Entry(forms=forms, gram=gram, etym=etym, note=note, sense=sense, xr=xr)
 
 
-def render_gram(gram: Grammar) -> str:
-    return (
-        "_"
-        + " ".join(
-            x
-            for x in [
-                gram.pos,
-                gram.subc,
-                gram.gen,
-                gram.number,
-                gram.gram,
-                "(" + gram.note.replace("*", "\\*") + ")" if gram.note else None,
-            ]
-            if x
-        )
-        + "_"
+def encode_list(xs):
+    list_xs = list(xs)
+    return "(" + ", ".join(list_xs) + ("," if len(list_xs) == 1 else "") + ")"
+
+
+encode_dict = (
+    lambda **d: "(" + ", ".join(f"{key}: {value}" for key, value in d.items()) + ")"
+)
+encode_string = (
+    lambda s: ('"' + s.translate(str.maketrans({"\n": " ", '"': r"\""})) + '"')
+    if s
+    else "none"
+)
+
+
+def encode_form(form) -> Typst:
+    return encode_dict(
+        ref=encode_list(form.ref),
+        usg=encode_string(form.usg),
+        orth=encode_string(form.orth),
+        oRef=encode_string(form.oRef),
+        grammar=fmap(encode_gram, form.grammar) or "none",
+        note=encode_string(form.note),
+        type=encode_string(form.type_),
     )
 
 
-def render_sense(sense: Sense) -> str:
-    return (
-        ", ".join(sense.ref_greek) + " --- " if sense.ref_greek else ""
-    ) + "; ".join(
-        " --- ".join(x for x in [cit.quote, cit.def_] if x)
-        + f" #text(size: 0.7em, fill: gray)[{cit.bibl}]"
-        for cit in sense.cit
+def encode_gram(gram) -> Typst:
+    return encode_dict(
+        pos=encode_string(gram.pos),
+        subc=encode_string(gram.subc),
+        gen=encode_string(gram.gen),
+        number=encode_string(gram.number),
+        gram=encode_string(gram.gram),
+        note=encode_string(gram.note),
     )
 
 
-def render_etym(etym: Etymology) -> str:
-    greek_etymology = (
-        " ".join(
-            x
-            for x in [
-                etym.greek_lemma,
-                fmap(lambda x: f"_{x}_", etym.greek_pos),
-                fmap(lambda x: f"'{x}'", etym.greek_meaning),
-                fmap(lambda x: f"#text(size: 0.7em, fill: gray)[{x}]", etym.greek_ref),
-            ]
-            if x
-        )
-        if etym.greek_lemma or etym.greek_pos or etym.greek_meaning or etym.greek_ref
-        else None
+def encode_etym(etym) -> Typst:
+    return encode_dict(
+        note=encode_string(etym.note),
+        greek_lemma=encode_string(etym.greek_lemma),
+        greek_pos=encode_string(etym.greek_pos),
+        greek_ref=encode_string(etym.greek_ref),
+        greek_meaning=encode_string(etym.greek_meaning),
     )
-    full_etymology = " -- ".join(
-        etym for etym in [greek_etymology, fmap(str.strip, etym.note)] if etym
-    )
-    if full_etymology:
-        return "[" + full_etymology + "]"
-    else:
-        return ""
 
 
-def render_entry(entry: Entry) -> str:
-    try:
-        lemma = next(filter(lambda form: form.type_ == "lemma", entry.forms))
-    except StopIteration:
-        lemma = None
-    forms = " ".join(
-        f"#text(fill: {'black' if form.type_ == 'lemma' else 'olive' if form.type_ == 'inflected' else 'blue'})[#super[{form.usg}]\u200c"
-        + form.orth.replace("*", "\\*")
-        + (f" ({render_gram(form.grammar)})" if form.grammar else "")
-        + "]"
-        for form in entry.forms
-        if form.type_ != "lemma"
+def encode_cit(cit) -> Typst:
+    return encode_dict(
+        quote=encode_string(cit.quote),
+        def_=encode_string(cit.def_),
+        bibl=encode_string(cit.bibl),
+        type=encode_string(cit.type_),
     )
-    senses = (
-        "  " + render_sense(entry.sense[0])
-        if len(entry.sense) == 1
-        else " ".join(
-            f"{index+1}. {render_sense(sense)}"
-            for index, sense in enumerate(entry.sense)
-        )
+
+
+def encode_sense(sense) -> Typst:
+    return encode_dict(
+        ref_greek=encode_list(
+            encode_string(ref_greek) for ref_greek in sense.ref_greek
+        ),
+        cit=encode_list(encode_cit(cit) for cit in sense.cit),
     )
-    return (
-        "/ "
-        + (lemma.orth.replace("*", "\\*") if lemma else "---")
-        + f": {forms} {render_gram(entry.gram) if entry.gram else ''} {senses} {render_etym(entry.etym) if entry.etym else ''}".replace(
-            "`", "'"
-        )
-        + ("→ " + ", ".join(xr.target for xr in entry.xr) if entry.xr else "")
+
+
+def encode_xr(xr) -> Typst:
+    return encode_dict(
+        type=encode_string(xr.type_),
+        target=encode_string(xr.target),
+        text=encode_string(xr.text),
+    )
+
+
+def encode_entry(entry) -> Typst:
+    return encode_dict(
+        forms=encode_list(encode_form(form) for form in entry.forms),
+        gram=fmap(encode_gram, entry.gram) or "none",
+        etym=fmap(encode_etym, entry.etym) or "none",
+        sense=encode_list(encode_sense(sense) for sense in entry.sense),
+        xr=encode_list(encode_xr(xr) for xr in entry.xr),
+        note=encode_string(entry.note),
     )
 
 
 if __name__ == "__main__":
     print(
-        """
-#set page(columns: 3, margin: 5%)
-#set terms(tight: true, hanging-indent: 0mm)
-#show par: set block(spacing: 0mm)
-#set text(10pt)
-    """
+        "#let entries =",
+        encode_list(
+            [
+                encode_entry(parse_entry(e))
+                for e in root.iterfind(".//entry", namespaces)
+            ]
+        ),
     )
-
-    for e in root.iterfind(".//entry", namespaces):
-        print(render_entry(parse_entry(e)))
 else:
     global entries
     entries = [parse_entry(e) for e in root.findall(".//entry", namespaces)]
