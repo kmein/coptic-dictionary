@@ -1,19 +1,14 @@
 #{
   import "entries.typ": entries
 
-  let transliterate = coptic => coptic
-    .replace("ⲁ", "a")
-    .replace("ⲃ", "b")
-
   let enum_if_multiple(function, list) = {
     if list.len() == 1 {
       function(list.at(0))
     } else {
       list.enumerate().map(pair => {
       let (index, value) = pair
-      str(index + 1) + ". " + function(value)
+      [#(index + 1).#sym.space.nobreak #function(value)]
       }).join(" ")
-      /* enum(list.map(function).enumerate()) */
     }
   }
 
@@ -40,7 +35,7 @@
       fill: if (form.type == "lemma") {
         black
       } else if (form.type == "inflected") {
-        aqua
+        maroon
       } else {
         blue
       },
@@ -54,7 +49,7 @@
         text(fill: if cit.type == "example" { olive } else {black},(cit.quote, cit.def_).filter(non_empty).join([ #sym.slash ]))
         + fmap(x => " " + x, render_reference(cit.bibl))
       ).join([#sym.compose ])
-    ).filter(non_empty).join([ #sym.lozenge.stroked ])
+    ).filter(non_empty).join([ #sym.slash ])
   }
 
   let render_etym(etym) = {
@@ -71,7 +66,7 @@
       (if non_empty(lemma) { [#text(lemma.orth) #label(lemma.orth)] } else { "—" },
         ( entry.forms.filter(form => form.type != "lemma").map(render_form).join(" ")
         , fmap(render_grammar, entry.gram)
-        , enum_if_multiple(render_sense, entry.sense)
+        , entry.sense.map(render_sense).join([ #sym.lozenge.stroked ])
         , fmap(render_etym, entry.etym)
         , fmap(x => [#sym.arrow.r #x], entry.xr.map(x => /*ref(label(*/x.target/*))*/).join(", "))
         ).filter(non_empty).join(" ")
@@ -80,8 +75,9 @@
   }
 
   show par: set block(spacing: 0mm)
-  set page(columns: 3, margin: 5%)
-  set text(10pt)
+  set page(columns: 4, margin: 5%, flipped: true)
+  set columns(gutter: 5pt)
+  set text(10pt, lang:"de", hyphenate: auto)
 
   for entry in entries {
     render_entry(entry)
