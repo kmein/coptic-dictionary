@@ -1,5 +1,5 @@
 #{
-  import "entries.typ": entries
+  import "other-entries.typ": entries
 
   let enum_if_multiple(function, list) = {
     if list.len() == 1 {
@@ -22,7 +22,7 @@
 
   let parenthesize = (body) => "(" + body + ")"
   let bracket = (body) => "[" + body + "]"
-  let enquote = (body) => "\"" + body + "\""
+  let enquote = (body) => sym.quote.l.single + body + sym.quote.r.single
 
   let render_reference(body) = text(size: 0.7em, fill: gray, body)
 
@@ -63,8 +63,8 @@
     terms(
       tight: true,
       hanging-indent: 0mm,
-      (if non_empty(lemma) { [#text(lemma.orth) #label(lemma.orth)] } else { "—" },
-        ( entry.forms.filter(form => form.type != "lemma").map(render_form).join(" ")
+      (if non_empty(lemma) { [#text(lemma.orth) #label(lemma.orth)] } else { "—" }
+      , ( entry.forms.filter(form => form.type != "lemma").map(render_form).join(" ")
         , fmap(render_grammar, entry.gram)
         , entry.sense.map(render_sense).join([ #sym.lozenge.stroked ])
         , fmap(render_etym, entry.etym)
@@ -80,6 +80,7 @@
   set text(10pt, lang:"de", hyphenate: auto)
 
   for entry in entries {
-    render_entry(entry)
+    [hello]
+    // render_entry(entry)
   }
 }

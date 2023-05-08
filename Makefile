@@ -13,3 +13,6 @@ coptic-dictionary.pdf: coptic-dictionary.typ entries.typ
 .PHONY: view
 view: coptic-dictionary.pdf
 	zathura $<
+
+other-entries.typ: Comprehensive_Coptic_Lexicon-v1.2-2020.xml tei2typst.xslt
+	saxonb -s:$< -xsl:tei2typst.xslt -o:$@
