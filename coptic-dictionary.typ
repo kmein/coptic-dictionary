@@ -12,6 +12,20 @@
     }
   }
 
+  let language = "DE";
+
+  let get_citation(key, dict) = {
+    if dict.at(key + language).len() > 0 {
+      dict.at(key + language)
+    } else if dict.at(key + "EN").len() > 0 {
+      dict.at(key + "EN")
+    } else if key in dict {
+      dict.at(key)
+    } else {
+      ()
+    }
+  }
+
   let non_empty = x => x != "" and x != none
 
   let fmap(function, value) = {
@@ -49,18 +63,8 @@
         text(
           fill: if cit.type == "example" { olive } else {black},
           (
-            if cit.quoteDE.len() > 0 {
-              cit.quoteDE.join("; ")
-            } else if cit.quoteEN.len() > 0 {
-              cit.quoteEN.join("; ")
-            } else {
-              cit.quote.join("; ")
-            },
-            if cit.definitionDE.len() > 0 {
-              cit.definitionDE.join("; ")
-            } else {
-              cit.definitionEN.join("; ")
-            }
+            get_citation("quote", cit).join("; "),
+            get_citation("definition", cit).join("; ")
           ).filter(non_empty).join([ #sym.slash ])
         )
         + fmap(x => " " + x, render_reference(cit.bibl))
