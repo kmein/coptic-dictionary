@@ -1,11 +1,12 @@
 .PHONY: all
 all: coptic-dictionary.pdf
 
+.PHONY: clean
+clean:
+	rm Comprehensive_Coptic_Lexicon-v1.2-2020.xml coptic-dictionary.pdf entries.typ
+
 Comprehensive_Coptic_Lexicon-v1.2-2020.xml:
 	wget -O $@ https://refubium.fu-berlin.de/bitstream/handle/fub188/27813/Comprehensive_Coptic_Lexicon-v1.2-2020.xml?sequence=1&isAllowed=y&save=y
-
-entries.typ: Comprehensive_Coptic_Lexicon-v1.2-2020.xml convert.py
-	python3 convert.py > $@
 
 coptic-dictionary.pdf: coptic-dictionary.typ entries.typ
 	typst compile $<
@@ -14,5 +15,5 @@ coptic-dictionary.pdf: coptic-dictionary.typ entries.typ
 view: coptic-dictionary.pdf
 	zathura $<
 
-other-entries.typ: Comprehensive_Coptic_Lexicon-v1.2-2020.xml tei2typst.xslt
+entries.typ: Comprehensive_Coptic_Lexicon-v1.2-2020.xml tei2typst.xslt
 	saxonb -s:$< -xsl:tei2typst.xslt -o:$@
