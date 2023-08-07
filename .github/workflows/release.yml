@@ -1,0 +1,27 @@
+name: release
+on:
+  push:
+    branches:
+      - master
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Nix
+        uses: cachix/install-nix-action@v16
+      - name: stardict
+        run: |
+          nix build $GITHUB_WORKSPACE#coptic-stardict --out-link stardict
+          zip coptic-dictionary-stardict.zip stardict/*
+      - name: pdf
+        run: nix build $GITHUB_WORKSPACE#coptic-pdf --out-link coptic-dictionary.pdf
+      - uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          prerelease: false
+          automatic_release_tag: latest
+          files: |
+            coptic-dictionary-stardict.zip
+            coptic-dictionary.pdf
