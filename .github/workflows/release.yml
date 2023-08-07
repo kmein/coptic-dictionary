@@ -17,6 +17,8 @@ jobs:
           zip coptic-dictionary-stardict.zip stardict/*
       - name: pdf
         run: nix build $GITHUB_WORKSPACE#coptic-pdf --out-link coptic-dictionary.pdf
+      - name: pdf (landscape)
+        run: nix build $GITHUB_WORKSPACE#coptic-pdf-landscape --out-link coptic-dictionary-landscape.pdf
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -24,4 +26,5 @@ jobs:
           automatic_release_tag: latest
           files: |
             coptic-dictionary-stardict.zip
+            coptic-dictionary-landscape.pdf
             coptic-dictionary.pdf

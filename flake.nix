@@ -17,6 +17,26 @@
       url = "https://refubium.fu-berlin.de/bitstream/handle/fub188/27813/Comprehensive_Coptic_Lexicon-v1.2-2020.xml?sequence=1&isAllowed=y&save=y";
       hash = "sha256-ppc8TwMRa85V78StjmrRo3Q9AvC6svI4hqJjodroMys=";
     };
+
+    buildCopticDictionary = {wide ? false}: ''
+      ${pkgs.typst}/bin/typst compile ${pkgs.writeText "coptic-dictionary.typ" ''
+          #{
+            import "/${pkgs.runCommand "entries.typ" {} ''
+              ${pkgs.saxonb_9_1}/bin/saxonb -s:${lib.escapeShellArg coptic-dictionary-xml} -xsl:${./tei2typst.xslt} -o:$out
+            ''}": entries
+            import "/${./render.typ}": render_entry
+
+            show par: set block(spacing: 0mm)
+            set page(columns: ${toString (if wide then 4 else 2)}, margin: 5%, flipped: ${if wide then "true" else "false"})
+            set columns(gutter: 5pt)
+            set text(10pt, lang:"de", hyphenate: auto)
+
+            for entry in entries {
+              render_entry(entry)
+            }
+          }
+      ''} $out
+    '';
   in {
     packages.${system} = rec {
       inherit coptic-dictionary-xml;
@@ -28,12 +48,9 @@
         mv coptic.{idx,ifo,syn,dict.dz} $out
       '';
 
-      coptic-pdf = pkgs.runCommand "coptic-dictionary.pdf" {} ''
-        ${pkgs.saxonb_9_1}/bin/saxonb -s:${lib.escapeShellArg coptic-dictionary-xml} -xsl:${./tei2typst.xslt} -o:entries.typ
-        cp ${./coptic-dictionary.typ} coptic-dictionary.typ
-        ${pkgs.typst}/bin/typst compile coptic-dictionary.typ
-        mv coptic-dictionary.pdf $out
-      '';
+      coptic-pdf-landscape = pkgs.runCommand "coptic-dictionary-landscape.pdf" {} (buildCopticDictionary {wide = true;});
+
+      coptic-pdf = pkgs.runCommand "coptic-dictionary.pdf" {} (buildCopticDictionary {wide = false;});
 
       stardict-tools = pkgs.stdenv.mkDerivation {
         name = "stardict-tools";
