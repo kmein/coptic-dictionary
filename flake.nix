@@ -3,24 +3,25 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs";
+    kellia-dictionary.url = "github:KELLIA/dictionary";
+    kellia-dictionary.flake = false;
   };
 
   outputs = {
     self,
     nixpkgs,
+    kellia-dictionary,
   }: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
     lib = nixpkgs.lib;
 
-    coptic-dictionary-xml = pkgs.fetchurl {
-      url = "https://refubium.fu-berlin.de/bitstream/handle/fub188/27813/Comprehensive_Coptic_Lexicon-v1.2-2020.xml?sequence=1&isAllowed=y&save=y";
-      hash = "sha256-ppc8TwMRa85V78StjmrRo3Q9AvC6svI4hqJjodroMys=";
-    };
+    coptic-dictionary-xml = "${kellia-dictionary.outPath}/xml/Comprehensive_Coptic_Lexicon-v1.2-2020.xml";
 
     buildCopticDictionary = {wide ? false}: ''
       ${pkgs.typst}/bin/typst compile ${pkgs.writeText "coptic-dictionary.typ" ''
           #{
+            // https://github.com/typst/typst/issues/199
             import "/${pkgs.runCommand "entries.typ" {} ''
               ${pkgs.saxonb_9_1}/bin/saxonb -s:${lib.escapeShellArg coptic-dictionary-xml} -xsl:${./tei2typst.xslt} -o:$out
             ''}": entries

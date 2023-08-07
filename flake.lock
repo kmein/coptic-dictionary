@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "kellia-dictionary": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1660946774,
+        "narHash": "sha256-7C+vE1hvo9OfonmBVT1as6c8rZeLf8f4nEsELwnUPXc=",
+        "owner": "KELLIA",
+        "repo": "dictionary",
+        "rev": "4fe62847e93b8a87ad7ca5de19190b34ff9e0c99",
+        "type": "github"
+      },
+      "original": {
+        "owner": "KELLIA",
+        "repo": "dictionary",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1683096326,
@@ -17,6 +33,7 @@
     },
     "root": {
       "inputs": {
+        "kellia-dictionary": "kellia-dictionary",
         "nixpkgs": "nixpkgs"
       }
     }
