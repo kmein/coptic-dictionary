@@ -17,3 +17,10 @@ view: coptic-dictionary.pdf
 
 entries.typ: Comprehensive_Coptic_Lexicon-v1.2-2020.xml tei2typst.xslt
 	saxonb -s:$< -xsl:tei2typst.xslt -o:$@
+
+coptic.babylon: Comprehensive_Coptic_Lexicon-v1.2-2020.xml tei2babylon.xslt
+	saxonb -s:$< -xsl:tei2babylon.xslt -o:$@
+
+.PHONY: stardict
+stardict: coptic.babylon
+	babylon $<
