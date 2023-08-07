@@ -20,12 +20,21 @@
   in {
     packages.${system} = rec {
       inherit coptic-dictionary-xml;
+
       coptic-stardict = pkgs.runCommand "coptic" {} ''
         mkdir $out
         ${pkgs.saxonb_9_1}/bin/saxonb -s:${lib.escapeShellArg coptic-dictionary-xml} -xsl:${./tei2babylon.xslt} -o:coptic.babylon
         PATH=${lib.makeBinPath [stardict-tools pkgs.dict]} babylon coptic.babylon
         mv coptic.{idx,ifo,syn,dict.dz} $out
       '';
+
+      coptic-pdf = pkgs.runCommand "coptic-dictionary.pdf" {} ''
+        ${pkgs.saxonb_9_1}/bin/saxonb -s:${lib.escapeShellArg coptic-dictionary-xml} -xsl:${./tei2typst.xslt} -o:entries.typ
+        cp ${./coptic-dictionary.typ} coptic-dictionary.typ
+        ${pkgs.typst}/bin/typst compile coptic-dictionary.typ
+        mv coptic-dictionary.pdf $out
+      '';
+
       stardict-tools = pkgs.stdenv.mkDerivation {
         name = "stardict-tools";
         nativeBuildInputs = [
