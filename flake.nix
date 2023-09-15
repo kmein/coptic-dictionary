@@ -2,6 +2,7 @@
   description = "Coptic dictionary files";
 
   inputs = {
+    niveum.url = "github:kmein/niveum";
     nixpkgs.url = "github:NixOS/nixpkgs";
     kellia-dictionary.url = "github:KELLIA/dictionary";
     kellia-dictionary.flake = false;
@@ -11,10 +12,13 @@
     self,
     nixpkgs,
     kellia-dictionary,
+    niveum,
   }: let
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
     lib = nixpkgs.lib;
+
+    stardict-tools = niveum.packages.${system}.stardict-tools;
 
     coptic-dictionary-xml = "${kellia-dictionary.outPath}/xml/Comprehensive_Coptic_Lexicon-v1.2-2020.xml";
 
@@ -52,47 +56,13 @@
       coptic-pdf-landscape = pkgs.runCommand "coptic-dictionary-landscape.pdf" {} (buildCopticDictionary {wide = true;});
 
       coptic-pdf = pkgs.runCommand "coptic-dictionary.pdf" {} (buildCopticDictionary {wide = false;});
-
-      stardict-tools = pkgs.stdenv.mkDerivation {
-        name = "stardict-tools";
-        nativeBuildInputs = [
-          pkgs.autoreconfHook
-          pkgs.pkg-config
-          pkgs.which
-          pkgs.libtool
-        ];
-        buildInputs = [ pkgs.glib pkgs.zlib pkgs.gtk3 pkgs.libmysqlclient pkgs.pcre pkgs.libxml2];
-        buildPhase = "make";
-        configureFlags = ["--disable-dict"];
-        env.NIX_CFLAGS_COMPILE = toString [
-          "-Wno-error=format-security"
-        ];
-        patchPhase = ''
-          ${pkgs.gnused}/bin/sed -i s/noinst_PROGRAMS/bin_PROGRAMS/ tools/src/Makefile.am
-        '';
-        installFlags = [ "INSTALL_PREFIX=$(out)" ];
-        autoreconfPhase = ''
-          patchShebangs ./autogen.sh
-          ./autogen.sh
-        '';
-        installPhase = ''
-          mkdir $out
-          make install
-        '';
-        src = pkgs.fetchFromGitHub {
-          owner = "huzheng001";
-          repo = "stardict-3";
-          rev = "96b96d89eab5f0ad9246c2569a807d6d7982aa84";
-          hash = "sha256-zmqp2maKv2JZ5fwMVE7gIOg0BKdEKZ4UvTLC0suuBRw=";
-        };
-      };
     };
 
     devShells.${system}.default = pkgs.mkShell {
       packages = [
         pkgs.typst
         pkgs.saxonb_9_1
-        self.packages.${system}.stardict-tools
+        stardict-tools
         pkgs.dict # dictzip
         (pkgs.python3.withPackages (py: [
           py.jupyter
